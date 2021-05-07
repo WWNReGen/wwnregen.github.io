@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>WWN region map generator</title>
+		<link rel='stylesheet' href='wwn.css'>
+	</head>
+	
+	<body>
+		<div id='container'>
+			<div id='map-section'>
+				<canvas id="codon-canvas" width="500px" height="500px">Canvas Not Supported</canvas>
+				<div id='selected-data'><p>Click on a hex to inspect it!</p></div>
+			</div>
+			<div id='data'></div>
+		</div>
+	</body>
+
+
+	<script type='text/javascript' src='media.js'></script>
+	<script type='text/javascript' src='genutil.js'></script>
+	
+	<script type='text/javascript' src='nation.js'></script>
+	<script type='text/javascript' src='flavor.js'></script>
+	<script type='text/javascript' src='terrain.js'></script>
+	<script type='text/javascript' src='tags.js'></script>
+
+	<script type="text/javascript">
+		function pickRandom(list) {
+			return list[Math.floor(Math.random() * list.length)];
+		}
+		
+		var HEX_X = Math.cos(Math.PI * (1.0 / 3.0));
+		var HEX_Y = Math.sin(Math.PI * (1.0 / 3.0));
+		
+		var HEX_RADIUS = 35;
+		
+		var MAP_WIDTH = 16;
+		var MAP_HEIGHT = 14;
+		
+		let map = [];
+		
+		let northSea = Math.random() < 0.5;
+		let southSea = Math.random() < 0.5;
+		let eastSea = Math.random() < 0.5;
+		let westSea = Math.random() < 0.5;
+		
+		let nations = [];
+		
+		let themes = GenUtil.pickList(Nation.themes, 6);
+		let examples = GenUtil.pickList(Nation.examples, 6);
+		let historyEvents = GenUtil.pickList(Nation.historyEvents, 12);
+		
+		for (let i = 0; i < 6; i++) {
+			nation = {};
+			
+			nation.name = 'Nation ' + i.toString();
+			nation.color = rainbow(6,i);
+			nation.value = 0;
+			nation.seedHex = null;
+			nation.html = '';
+			
+			let example = examples[i];
+			let theme = themes[i];
+			let flavor = Flavor.generate();
+			let historyEvent1 = historyEvents[i*2];
+			let historyEvent2 = historyEvents[i*2+1];
+			
+			nation.html += '<h3>'+nation.name+'</h3>'
+			nation.html += '<p><b>Example Nation:</b> ' + example + '</p>';
+			nation.html += '<p><details><summary><b>Theme:</b> ' + theme.name + '</summary>' + theme.desc + '</details></p>';
+			nation.html += '<p><b>Flavor:</b> ' + flavor + '</p>';
+			nation.html += '<p><b>Historical Avent A:</b> ' + historyEvent1 + '</p>';
+			nation.html += '<p><b>Historical Avent A:</b> ' + historyEvent2 + '</p>';
+			
+			nations.push(nation);
+		}
+		
+		for (let x = 0; x < MAP_WIDTH; x++) {
+			map[x] = [];
+			
+			for (let y = 0; y < MAP_HEIGHT; y++) {
+				let quad = null;
+			
+				type = Terrain.types[0];
+				
+				if (northSea) {
+					if (y==0 && Math.random()<0.75 || y==1 && Math.random()<0.375 || y==2 && Math.random()<0.2) {
+						type = Terrain.types[1];
+					}
+				}
+				if (westSea) {
+					if (x==0 && Math.random()<0.75 || x==1 && Math.random()<0.375 || x==2 && Math.random()<0.2) {
+						type = Terrain.types[1];
+					}
+				}
+				if (southSea) {
+					if (y==MAP_HEIGHT-1 && Math.random()<0.75 || y==MAP_HEIGHT-2 && Math.random()<0.375 || y==MAP_HEIGHT-3 && Math.random()<0.2) {
+						type = Terrain.types[1];
+					}
+				}
+				if (eastSea) {
+					if (x==MAP_WIDTH-1 && Math.random()<0.75 || x==MAP_WIDTH-2 && Math.random()<0.375 || x==MAP_WIDTH-3 && Math.random()<0.2) {
+						type = Terrain.types[1];
+					}
+				}
+				
+				map[x][y] = {}
+				
+				map[x][y].x = x;
+				map[x][y].y = y;
+				map[x][y].type = type;
+				map[x][y].other = null;
+				map[x][y].label = "";
+				map[x][y].html = '';
+				map[x][y].nation = null;
+				map[x][y].zoneIndex = -1;
+			}
+		}
+		
+		let minSX = 0;
+		let maxSX = MAP_WIDTH;
+		
+		if (westSea) { minSX += 2; }
+		if (eastSea) { maxSX -= 2; }
+		
+		let minSY = 0;
+		let maxSY = MAP_HEIGHT;
+		
+		if (northSea) { minSY += 2; }
+		if (southSea) { maxSY -= 2; }
+		
+		for (let newtype of Terrain.chooseTerrain()) {
+			let sx, sy;
+			do {
+				sx = Math.floor(Math.random()*(maxSX-minSX))+minSX;
+				sy = Math.floor(Math.random()*(maxSY-minSY))+minSY;
+			} while (map[sx][sy].type != Terrain.types[0])
+			map[sx][sy].type = newtype;
+			expandHexTerrain(sx,sy,1);
+		}
+
+		for (let i = 0; i < MAP_WIDTH*MAP_HEIGHT*0.85; i++) {
+			let sx = Math.floor(Math.random()*MAP_WIDTH);
+			let sy = Math.floor(Math.random()*MAP_HEIGHT);
+			expandHexTerrain(sx,sy);			
+		}
+		
+		for (let x = 0; x < MAP_WIDTH; x++) {
+			for (let y = 0; y < MAP_HEIGHT; y++) {	
+				let newtype = Terrain.chooseFillerTerrain();
+				if (Math.random() < 0.85) {
+					if (map[x][y].type == Terrain.types[0]) { map[x][y].type = newtype; }
+				}
+			}
+		}
+		
+		
+		for (let i = 0; i < MAP_WIDTH*MAP_HEIGHT*1.25; i++) {
+			let sx = Math.floor(Math.random()*MAP_WIDTH);
+			let sy = Math.floor(Math.random()*MAP_HEIGHT);
+			expandHexTerrain(sx,sy);			
+		}
+		
+		for (let x = 0; x < MAP_WIDTH; x++) {
+			for (let y = 0; y < MAP_HEIGHT; y++) {
+				let oldtype = map[x][y].type;
+				if (oldtype == Terrain.types[0]) {
+					map[x][y].type = Terrain.types[7];
+				} else if (oldtype == Terrain.types[1]) {
+					if (Math.random() < 0.1) {
+						map[x][y].type = Terrain.types[8];
+					}
+				} else if (oldtype == Terrain.types[8]) {
+					if (Math.random() < 0.75) {
+						map[x][y].type = Terrain.types[1];
+					}
+				}
+			}
+		}
+		
+		minSX = 1;
+		maxSX = MAP_WIDTH-1;
+		minSY = 1;
+		maxSY = MAP_HEIGHT-1;
+		
+		for (let i = 0 ; i < nations.length; i++) {
+			
+			let maxX = 0;
+			let maxY = 0;
+			let maxValue = -100;
+		
+			for (let j = 0; j < 3; j++) {
+				let sx, sy;
+				do {
+					sx = Math.floor(Math.random()*(maxSX-minSX))+minSX;
+					sy = Math.floor(Math.random()*(maxSY-minSY))+minSY;
+				} while (map[sx][sy].nation != null || map[sx][sy].type == Terrain.types[1])
+				
+				let value = evaluateCitySite(sx, sy);
+				if (value > maxValue) {
+					maxValue = value;
+					maxX = sx;
+					maxY = sy;
+				}
+			}
+			
+			nations[i].seedHex = map[maxX][maxY];
+			giveNationHex(nations[i],map[maxX][maxY]);
+			expandHexNation(maxX,maxY,1);
+			expandHexNation2x(maxX,maxY,2);
+		}
+		
+		for (let x = 0; x < MAP_WIDTH; x++) {
+			for (let y = 0; y < MAP_HEIGHT; y++) {
+				map[x][y].nation = null;
+			}
+		}
+		
+		for (let i = 0; i < nations.length; i++) {
+			nations[i].seedHex.other = 'imgTileCapital';
+			map[nations[i].seedHex.x][nations[i].seedHex.y].nation = nations[i];
+			expandHexNation(nations[i].seedHex.x, nations[i].seedHex.y, 1);
+		}
+		
+		
+		for (let i = 0; i < MAP_WIDTH*MAP_HEIGHT*2; i++) {
+			let sx = Math.floor(Math.random()*MAP_WIDTH);
+			let sy = Math.floor(Math.random()*MAP_HEIGHT);
+			expandHexNation(sx,sy);			
+		}
+		
+		
+		for (let i = 0 ; i < 12; i++) {
+			
+			let maxX = 0;
+			let maxY = 0;
+			let maxValue = -100;
+		
+			for (let j = 0; j < 3; j++) {
+				let sx, sy;
+				do {
+					sx = Math.floor(Math.random()*(maxSX-minSX))+minSX;
+					sy = Math.floor(Math.random()*(maxSY-minSY))+minSY;
+				} while (map[sx][sy].nation == null || map[sx][sy].other != null || map[sx][sy].type == Terrain.types[1])
+				
+				let value = evaluateCitySite(sx, sy);
+				if (value > maxValue) {
+					maxValue = value;
+					maxX = sx;
+					maxY = sy;
+				}
+			}
+			
+			if (map[maxX][maxY].nation != null) {
+				map[maxX][maxY].other = 'imgTileCity';
+			}
+		}
+		
+		for (let x = 0; x < MAP_WIDTH; x++) {
+			for (let y = 0; y < MAP_HEIGHT; y++) {
+				if (map[x][y].type == Terrain.types[1]) {
+					map[x][y].nation = null;
+				}
+			
+				map[x][y].html = '';
+				map[x][y].html += '<h3>('+(x+1).toString().padStart(2, '0')+','+(y+1).toString().padStart(2, '0')+')</h3>'
+				map[x][y].html += '<p><details><summary><b>Terrain:</b> ' + map[x][y].type.name + '</summary>' + map[x][y].type.desc + '</details></p>';
+				if (map[x][y].nation != null) {
+					map[x][y].html += map[x][y].nation.html;
+				}
+			}
+		}
+		
+		// --------------------------------------------------
+		
+		function expandHexTerrain(sx,sy, chance=0.5) {
+			if (map[sx][sy].type == Terrain.types[0] || map[sx][sy].type == Terrain.types[1]) {
+				return;
+			}
+			
+			for (hex of getHexNeighbors(map, sx, sy)) {
+				if (hex.type != Terrain.types[0]) { continue; }
+				if (Math.random() < chance) {
+					hex.type = map[sx][sy].type;
+				}
+			}
+		}
+
+		function expandHexNation(sx,sy, chance=0.5) {
+			if (map[sx][sy].nation == null) {
+				return;
+			}
+			
+			for (hex of getHexNeighbors(map, sx, sy)) {
+				if (hex.nation != null) { continue; }
+				if (Math.random() < chance) {
+					giveNationHex(map[sx][sy].nation, hex);
+				}
+			}
+		}
+		
+		function expandHexNation2x(sx,sy,size) {
+			for (hex of getHexNeighbors(map, sx, sy)) {
+				if (hex.nation != map[sx][sy].nation) { continue; }
+				expandHexNation(hex.x,hex.y,1);
+			}
+			if (size > 1) {
+				for (hex of getHexNeighbors(map, sx, sy)) {
+					if (hex.nation != map[sx][sy].nation) { continue; }
+						expandHexNation2x(hex.x,hex.y,size-1);
+				}
+			}
+		}
+		
+		function evaluateCitySite(sx,sy) {
+			let value = 0;
+			let adj = false;
+			
+			let hex = map[sx][sy];
+			value += hex.type.value;
+	
+			for (neighbor of getHexNeighbors(map, sx, sy)) {
+				value += neighbor.type.value / 6.0;
+				if (neighbor.other != null) {
+					adj = true;
+				}
+			}
+			
+			if (adj == true) { value*=0.50; }
+			
+			value += 1.0 * Math.random();
+			
+			return value;
+		}
+		
+		function giveNationHex(nation, hex) {
+			if (hex.nation == nation) { return; }
+			
+			let value = hex.type.value;
+			
+			if (hex.nation != null) {
+				hex.nation.value -= value;
+			}
+			
+			nation.value += value;
+			
+			hex.nation = nation;
+		}
+		
+		function assimilate(nation) {
+			// get all hexes in the nation
+			let nationHexes = [];
+			for (let x = 0; x < MAP_WIDTH; x++) {
+				for (let y = 0; y < MAP_HEIGHT; y++) {
+					if (map[x][y].nation == nation) {
+						nationHexes.push(map[x][y]);
+					}
+				}
+			}
+			
+			// get all neighboring nations
+			let neighborNations = new Set();
+			for (hex of nationHexes) {
+				for (neighbor of getHexNeighbors(map, hex.x, hex.y)) {
+					let other = neighbor.nation;
+					if (other == null) continue;
+					if (other.isMajor == true) continue;
+					if (other == nation) continue;
+					neighborNations.add(other);
+				}
+			}
+			
+			console.log(nationHexes);
+			console.log(neighborNations);
+			
+			if (neighborNations.size == 0) {
+				return;
+			}
+			
+
+			
+			// pick a random nation
+			let items = Array.from(neighborNations);
+			let assimNation = items[Math.floor(Math.random() * items.length)];
+			
+			// integrate nation hexes
+			for (let x = 0; x < MAP_WIDTH; x++) {
+				for (let y = 0; y < MAP_HEIGHT; y++) {
+					if (map[x][y].nation == assimNation) {
+						map[x][y].nation = nation;
+					}
+				}
+			}			
+			
+			// delete the nation from the list
+			oldNations = nations;
+			nations = [];
+			for (let i = 0; i < oldNations.length; i++) {
+				if (oldNations[i] != assimNation) {
+					nations.push(oldNations[i])
+				}
+			}
+		}
+		
+		function rollStr(rolls) {
+			let str = '';
+			for (let roll of rolls) {
+				str += '<p>';
+				str += '<b>' + roll.label + ':</b> ';
+				str += roll.options[Math.floor(Math.random()*roll.options.length)];
+				str += '</p>';
+			}
+			return str;
+		}
+		
+		// ===========================================
+		
+		function onClick(e) {
+			let mx = e.offsetX;
+			let my = e.offsetY;
+			
+			let coords = pickHex(mx, my);
+			
+			console.log(map);
+			
+			if (coords.x >= 0 && coords.x < MAP_WIDTH && coords.y >= 0 && coords.y < MAP_HEIGHT) {
+				document.getElementById('selected-data').innerHTML = map[coords.x][coords.y].html;
+			}
+		}
+		
+		// ===========================================
+		
+		function setHex(hexes, x, y, data) {
+			hexes.set("x"+x+"y"+y, {x:x, y:y, data:data});
+		}
+		
+		function getHex(hexes, x, y) {
+			hexes.get("x"+mouseHex.x+"y"+mouseHex.y);
+		}
+		
+		function main() {
+			var canvas = document.getElementById("codon-canvas");
+			canvas.addEventListener('click', onClick);
+			var context = canvas.getContext("2d");
+			context.imageSmoothingEnabled = false;
+			
+			canvas.width = HEX_RADIUS * (MAP_WIDTH+0.5) * HEX_X*3;
+			canvas.height = HEX_RADIUS * (MAP_HEIGHT+0.65) * HEX_Y*2;
+			
+			context.lineWidth = 0;
+			
+			context.clearRect(0,0,canvas.width, canvas.height);
+			drawHexes(context);
+		}
+		
+		function toColorCode(r, g, b) {
+			return "rgb("+Math.floor(r*255)+","+Math.floor(g*255)+","+Math.floor(b*255)+")"
+		}
+		
+		function getHexCenter(coords) {
+			var x = coords.x * HEX_X * HEX_RADIUS * 3;
+			var y = (coords.y + 0.5 * (coords.x%2)) * HEX_Y * HEX_RADIUS * 2
+			return {x:x, y:y};
+		}
+		
+		function drawHexes(context) {
+			for (var x = 0; x < MAP_WIDTH; x++) {
+				var yMin = 0;
+				var yMax = MAP_HEIGHT;
+				
+				for (var y = yMin; y < yMax; y++) {
+					
+					let tile = map[x][y];
+					
+					context.save();
+						context.strokeStyle = "#000";
+						context.lineWidth = 1;
+						
+						let coords = getHexCenter({x:x+0.75, y:y+0.2});
+						context.translate(coords.x, coords.y);
+						
+						context.textAlign = "center";
+						context.textBaseline = "hanging";
+						context.font = '16px "Source Serif Pro"';
+						context.fillStyle = "#555";
+						context.fillStyle = 'black';
+						context.lineWidth = 1;
+						
+						var gridX = x + 1;
+						gridX = gridX.toString().padStart(2, '0');
+						var gridY = y + 1;
+						gridY = gridY.toString().padStart(2, '0');
+						
+						var hexString = gridX + '' + gridY;
+						
+						
+						context.globalAlpha = 0.333;
+						
+						context.fillText(hexString, 0, -HEX_RADIUS * HEX_Y + 4);
+
+						context.beginPath();
+							drawHex(context, HEX_RADIUS);
+						context.stroke();
+						
+						/*
+						if (tile.zoneIndex != -1) {
+							context.globalAlpha = 0.5;
+							context.fillStyle = rainbow(zoneCount, tile.zoneIndex)
+							context.fill();
+						}
+						*/
+						
+						if (tile.nation != null) {
+							context.globalAlpha = 0.25;
+							context.fillStyle = tile.nation.color;
+							context.fill();
+						}
+						
+						
+						context.globalAlpha = tile.type.bgAlpha;
+						context.fill();
+					context.restore();
+					
+					context.save();
+						context.globalAlpha = 0.75;
+						coords = getHexCenter({x:x+0.75, y:y+0.2});
+						context.translate(Math.round(coords.x)-35, Math.round(coords.y)-30);
+						context.drawImage(Media[tile.type.img],0,0);
+						
+						console.log(tile);
+						
+						if (tile.other) {
+							context.globalAlpha = 1;
+							
+							context.drawImage(Media[tile.other],0,0);
+							
+							context.textAlign = "center";
+							context.textBaseline = "hanging";
+							context.font = '18px "Source Serif Pro Black"';
+							context.fillStyle = 'black';
+							context.lineWidth = 1;
+							
+							context.fillText(tile.label.toString(), -10+35, 10+30);
+						}
+					context.restore();
+				}
+			}		
+		}
+		
+		function drawHex(context, r) {
+			var hx = HEX_X * r;
+			var hy = HEX_Y * r;
+		
+			context.moveTo(r,0);
+			context.lineTo(hx, -hy);
+			context.lineTo(-hx, -hy);
+			context.lineTo(-r,0);
+			context.lineTo(-hx, hy);
+			context.lineTo(hx, hy);
+			context.lineTo(r, 0);
+		}
+		
+		function pickHex(mx, my) {
+		
+			var hx = Math.floor(((mx-5) / (HEX_X * HEX_RADIUS * 3)));
+			var hy = Math.floor(((my+0) / (HEX_Y * HEX_RADIUS * 2)) - 0.5 * (hx%2));
+			
+			return {x:hx, y:hy};
+		}
+		
+		function getHexNeighbors(hexes, x,y) {
+			let list = [];
+			
+			let p = x%2
+			
+			addIfOK(x,y-1);
+			addIfOK(x,y+1);
+			addIfOK(x-1,y+p);
+			addIfOK(x-1,y-1+p);
+			addIfOK(x+1,y+p);
+			addIfOK(x+1,y-1+p);
+			
+			return list;
+
+			function addIfOK(x,y) {
+				if (x >=0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
+					list.push(hexes[x][y]);
+				}
+			}
+		}
+
+		function labelLetter(i) {
+			return String.fromCharCode(i+64);
+		}
+
+		function rainbow(numOfSteps, step) {
+    // This function generates vibrant, "evenly spaced" colours (i.e. no clustering). This is ideal for creating easily distinguishable vibrant markers in Google Maps and other apps.
+    // Adam Cole, 2011-Sept-14
+    // HSV to RBG adapted from: http://mjijackson.com/2008/02/rgb-to-hsl-and-rgb-to-hsv-color-model-conversion-algorithms-in-javascript
+    var r, g, b;
+    var h = step / numOfSteps;
+    var i = ~~(h * 6);
+    var f = h * 6 - i;
+    var q = 1 - f;
+    switch(i % 6){
+        case 0: r = 1; g = f; b = 0; break;
+        case 1: r = q; g = 1; b = 0; break;
+        case 2: r = 0; g = 1; b = f; break;
+        case 3: r = 0; g = q; b = 1; break;
+        case 4: r = f; g = 0; b = 1; break;
+        case 5: r = 1; g = 0; b = q; break;
+    }
+    var c = "#" + ("00" + (~ ~(r * 255)).toString(16)).slice(-2) + ("00" + (~ ~(g * 255)).toString(16)).slice(-2) + ("00" + (~ ~(b * 255)).toString(16)).slice(-2);
+    return (c);
+}
+
+		Media.onLoad(main);
+	</script>
+	
+</html>

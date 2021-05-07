@@ -1,0 +1,20 @@
+'use strict'
+
+let Flavor = (function() {
+	let Flavor = {};
+
+	Flavor.generate = function() {
+		let patterns = [
+			'{adjectives} {nouns}',
+		];
+		
+		return GenUtil.generatePattern(GenUtil.pickRandom(patterns), Flavor);
+	}
+
+	Flavor.adjectives = ['Glass','Silent','Silver','Golden','Rocky','Burning','Elven','Dwarven','Gnomish','Orcish','Deep','Dragon','Mad','Fungal','Hateful','Legendary','Fabled','Mythical','Dark','Gloomy','Steadfast','Adamantine','Hellish','Bleak','Murky','Dismal','Desolate','Grim','Unlikely','Sinister','Draconic','Monstrous','Lonely','Twin','Sealed','Wild','Crystalline','Haunted','Obsidian','Frozen','Unworthy','Scorched','Whispering','Blighted','Slimy','Corrupted','Nightmare','Solar','Lunar','Undead','Demonic','Demon','Primordial','Abyssal','Forbidden','Laughing','Eternal','Lost','Tribal','Rusty','Abandoned','Gray','Black','White','Blue','Green','Onyx','Red','Orange','Yellow','Violet','Indigo','Umber','Dead','Vile','Cursed','Ancient','Dread','Thorny','Timeless','Fearsome','Oaken','Shrouded','Windy','Cruel','Bitter','Blasted','Hidden','Shadowy','Shining','Screaming','Howling','Undersea','Lofty','Subterranian','Unearthly','Illusory','Sunless','Tidal','Sandy','Parched','Slimy','Mysterious','Bloody','Elemental','Divine','Snowy','Holy','Unholy','Clockwork','Royal','Crooked','Secret','Creeping','Great','Broken','All-Seeing','Singing','Impervious','Imperial','Enchanted','Beguiling','Bewitched','Enslaved','Living','Ghostly','Colossal','Planar','Lightning-Struck','Drowned','Poisonous','Prismatic','Cunning','Ashen','Besieged','Enigmatic','Wandering','Misty','Twisted','Twisty','Homely','Stinking','Deathless','Savage','Mechanized','Animated','Scoured','Ruined','Bubbling','Olympian','Drunken','World','Hanging','Hungering','Foul','Damned','Cracked','Demented','Chaotic','Damp','Stygian','Olympic','Raging','Invisible','Stony','Starving','Musical','Windswept','Vast','Dry','Sandy','Mossy','Arboreal','Foggy','Echoing','Hypnotic','Magnetic','Apocalyptic','Diabolical','Attuned','Fossilized','Elder','Ominous','Ghastly','Baleful','Dying','Lucky','Sunny','Flowering','Petrified','Putrified','Rejoicing','Woody','Metallic','Razored'];
+
+	Flavor.nouns = ['Adventure','Ale','Angel','Annihilation','Arm','Army','Armor','Ash','Axe','Bane','Banner','Battle','Bear','Beetle','Bell','Berry','Blood','Blossom','Twilight','Bone','Book','Candles','Chaos','Clan','Claw','Coin','Cold','Comet','Copper','Corn','Cove','Crab','Crown','Danger','Darkness','Dawn','Daylight','Death','Demon','Desert','Despair','Devil','Rust','Devotion','Diamond','Discord','Dog','Doom','Dragon','Dream','Dusk','Dust','Dwarf','Eagle','Earth','Elf','Emerald','End','Vine','Bramble','Thorn','Evil','Eye','Face','Faith','Falcon','Fate','Favor','Fear','Feast','Finger','Fire','Fish','Fist','Flesh','Flower','Fool','Foot','Forest','Fortune','Free','Frog','Helm','Gear','Gem','Giant','Glen','Glory','Gnome','Goblin','Gold','Granite','Grave','Grief','Grove','Guard','Hand','Harmony','Hatred','High','Hope','Horror','Ice','Illusion','Ivy','Judgement','Justice','King','Knight','Knowledge','Laughter','Law','Leg','Legion','Lightning','Lizard','Lost','Low','Madness','Magic','Mask','Memory','Metal','Meteor','Midnight','Mirror','Mist','Monkey','Monster','Mountain','Mystery','Night','Oblivion','Orb','Orc','Pain','Pass','Peace','Peak','Pirate','Point','Power','Prophecy','Queen','Rage','Rat','Raven','Ring','Rock','Rose','Rot','Ruby','Ruin','Rune','Sage','Sapphire','Scar','Scroll','Secret','Serpent','Shadow','Shield','Shrine','Silence','Silver','Skull','Arrow','Slime','Smoke','Song','Spear','Spell','Spider','Spike','Spirit','Star','Storm','Sword','Temple','Terror','Thief','Tiger','Time','Tooth','Topaz','Town','Treasure','Tree','Trek','Trick','Truth','Vale','Valour','Venom','Vice','Vile','Villainy','Vision','Void','Vow','War','Water','Wealth','Wind','Wine','Wisdom','Witchcraft','Wizard','Wizardry','Wolves'];
+
+	return Flavor;
+
+}) ();
